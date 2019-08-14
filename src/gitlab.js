@@ -45,7 +45,6 @@ const BUILTIN_ACCESS_LEVEL_ANONYMOUS = [ '$anonymous', '$all' ];
 // Level to apply on 'allow_access' calls when a package definition does not define one
 const DEFAULT_ALLOW_ACCESS_LEVEL = [ '$all' ];
 
-
 export default class VerdaccioGitLab implements IPluginAuth {
   options: PluginOptions;
   config: VerdaccioGitlabConfig;
@@ -107,37 +106,7 @@ export default class VerdaccioGitLab implements IPluginAuth {
       }
 
       const publishLevelId = ACCESS_LEVEL_MAPPING[this.publishLevel];
-
-      // Set the groups of an authenticated user, in normal mode:
-      // - for access, depending on the package settings in verdaccio
-      // - for publish, the logged in user id and all the groups they can reach as configured with access level `$auth.gitlab.publish`
-      //
-      // In legacy mode, the groups are:
-      // - for access, depending on the package settings in verdaccio
-      // - for publish, the logged in user id and all the groups they can reach as fixed `$auth.gitlab.publish` = `$owner`
-      const gitlabPublishQueryParams = this.config.legacy_mode ? { owned: true } : { min_access_level: publishLevelId };
-      this.logger.trace('[gitlab] querying gitlab user groups with params:', gitlabPublishQueryParams);
-
-      const groupsPromise = GitlabAPI.Groups.all(gitlabPublishQueryParams).then(groups => {
-        return groups.filter(group => group.path === group.full_path).map(group => group.path);
-      });
-
-      const projectsPromise = GitlabAPI.Projects.all(gitlabPublishQueryParams).then(projects => {
-        return projects.map(project => project.path_with_namespace);
-      });
-
-      Promise.all([groupsPromise, projectsPromise]).then(([groups, projectGroups]) => {
-        const realGroups = [user, ...groups, ...projectGroups];
-        this._setCachedUserGroups(user, password, { publish: realGroups });
-
-        this.logger.info(`[gitlab] user: ${user} successfully authenticated`);
-        this.logger.debug(`[gitlab] user: ${user}, with groups:`, realGroups);
-
-        return cb(null, realGroups);
-      }).catch(error => {
-        this.logger.error(`[gitlab] user: ${user} error querying gitlab: ${error}`);
-        return cb(httperror[401]('error authenticating user'));
-      });
+      return cb(null, [user]);
 
     }).catch(error => {
       this.logger.error(`[gitlab] user: ${user} error querying gitlab user data: ${error.message || {}}`);
